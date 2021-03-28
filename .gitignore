@@ -1,3 +1,6 @@
+# Ignore Data Directory (to avoid needing to track large files w/ LFS)
+data/
+
 # OS Junk
 .DS_Store
 
@@ -130,3 +133,4 @@ data/.DS_Store
 matlab_preprocessing/.DS_Store
 data/.DS_Store
 matlab_preprocessing/.DS_Store
+data/.DS_Store
