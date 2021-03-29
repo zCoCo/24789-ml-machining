@@ -8,18 +8,29 @@ cur_dir=pwd;
 %NumberOfCycle=101;
 
 NumOfDataForCycle=(DAQrate/(SpindleRPM/60))+10; %%Number of data points for a single rotation + 10 data points in case of rotation error!!..!!
-%% LOAD IR DATA
-i=5;
+%% LOAD IR DATA AE DATA and MIC
+
 Numberr=4;
 Force_axis=["AEraw","forcedatafx","forcedatafy","forcedatafz","IR","Microphone"];
 cur_dir=pwd;
 
-%% LOAD FORCE DATA
 
+i=5;
 dir = strcat(pwd ,'\Outputs\',num2str(Numberr),'\', Force_axis(i) , num2str(Numberr), '.txt')
 res_dir=strcat(dir);
 IR=textread(res_dir); 
-%%
+
+i=1;
+dir = strcat(pwd ,'\Outputs\',num2str(Numberr),'\', Force_axis(i) , num2str(Numberr), '.txt')
+res_dir=strcat(dir);
+AE=textread(res_dir); 
+
+i=6;
+dir = strcat(pwd ,'\Outputs\',num2str(Numberr),'\', Force_axis(i) , num2str(Numberr), '.txt')
+res_dir=strcat(dir);
+Mic=textread(res_dir); 
+
+%% LOAD FORCE DATA
 for i=2:4
     dir = strcat(pwd ,'\Outputs\',num2str(Numberr),'\', Force_axis(i) , num2str(Numberr), '.txt')
     res_dir=strcat(dir);
@@ -99,13 +110,29 @@ while(i<length(index))
 end
     
     
-%%
+%% SAVE and PLOT SEGMENTED PORTIONS
 
 for i=1:1:length(channelsRoughIndex)    
    figure()
    plot(Detrend_Force(channelsRoughIndex(i,1):channelsRoughIndex(i,2),2))
-    
+   
+   if (mod(i,2)==1)
+      Brass{ceil(i/2),1}.Fx=Detrend_Force(channelsRoughIndex(i,1):channelsRoughIndex(i,2),1)
+      Brass{ceil(i/2),1}.Fy=Detrend_Force(channelsRoughIndex(i,1):channelsRoughIndex(i,2),2)
+      Brass{ceil(i/2),1}.Fz=Detrend_Force(channelsRoughIndex(i,1):channelsRoughIndex(i,2),3)
+      Brass{ceil(i/2),1}.Mic=
+      Brass{ceil(i/2),1}.IR=
+      Brass{ceil(i/2),1}.index=channelsRoughIndex(i,1):channelsRoughIndex(i,2)
+   else
+      PmmaChannels{i/2,1}.Fx=Detrend_Force(channelsRoughIndex(i,1):channelsRoughIndex(i,2),1)
+      PmmaChannels{i/2,1}.Fy=Detrend_Force(channelsRoughIndex(i,1):channelsRoughIndex(i,2),2)
+      PmmaChannels{i/2,1}.Fz=Detrend_Force(channelsRoughIndex(i,1):channelsRoughIndex(i,2),3)
+      PmmaChannels{i/2,1}.index=channelsRoughIndex(i,1):channelsRoughIndex(i,2)
+   end
 end
+
+%%
+
 
 
 
