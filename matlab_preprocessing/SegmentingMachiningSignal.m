@@ -1,13 +1,18 @@
-function [Brass,Pmma,index]=SegmentingMachiningSignal(ChanNum,SpindleRPM, DAQrate ,NumberOfCycle)
+function [Brass,Pmma,index]=SegmentingMachiningSignal(ChanNum,SpindleRPM, DAQ_IR ,NumberOfCycle,Feed,DAQ_Feed)
 
 Force_axis=["AEraw","forcedatafx","forcedatafy","forcedatafz","IR","Microphone"];
 ChannelNo=["First","Second","Third","Fourth"];
 Numberr=ChanNum;
 cur_dir=pwd;
 
+
+Offset_index = (0.5/Feed)*DAQ_Feed; %% 0.5 mm of machining is removed from both ends
+
 %NumberOfCycle=101;
 
-NumOfDataForCycle=(DAQrate/(SpindleRPM/60))+10; %%Number of data points for a single rotation + 10 data points in case of rotation error!!..!!
+NumOfDataForCycle=(DAQ_IR/(SpindleRPM/60))+10; %%Number of data points for a single rotation + 10 data points in case of rotation error!!..!!
+
+
 %% LOAD IR DATA AE DATA and MIC
 
 Force_axis=["AEraw","forcedatafx","forcedatafy","forcedatafz","IR","Microphone"];
@@ -107,15 +112,27 @@ while(i<length(index))
     i=i+1;
  
 end
-    
-    
+[numRows,numCols] = size(channelsRoughIndex);
+Offsetarray=ones(numRows,1)*Offset_index;
+channelsRoughIndex(:,1)=channelsRoughIndex(:,1)+Offsetarray;
+channelsRoughIndex(:,2)=channelsRoughIndex(:,2)-Offsetarray;
+
+
 %% SAVE and PLOT SEGMENTED PORTIONS
 
 for i=1:1:length(channelsRoughIndex)    
 %    figure()
 %    plot(Detrend_Force(channelsRoughIndex(i,1):channelsRoughIndex(i,2),2))
 %    
+if( length(IR)<channelsRoughIndex(i,2)*4) %sometimes IR AE sensor card is interepted before 4th channel.
+    channelsRoughIndex(i,2)=length(IR)/4;
+    if(length(IR)<channelsRoughIndex(i,1)*4 )
+        break
+    end
+end
    if (mod(i,2)==1)
+           
+       
       Brass{ceil(i/2),1}.Fx=Detrend_Force(channelsRoughIndex(i,1):channelsRoughIndex(i,2),1);
       Brass{ceil(i/2),1}.Fy=Detrend_Force(channelsRoughIndex(i,1):channelsRoughIndex(i,2),2);
       Brass{ceil(i/2),1}.Fz=Detrend_Force(channelsRoughIndex(i,1):channelsRoughIndex(i,2),3);
@@ -123,7 +140,13 @@ for i=1:1:length(channelsRoughIndex)
       Brass{ceil(i/2),1}.IR=IR(channelsRoughIndex(i,1)*4:channelsRoughIndex(i,2)*4); %They have 4 times higher acqusition rates...
       Brass{ceil(i/2),1}.AE=AE(channelsRoughIndex(i,1)*4:channelsRoughIndex(i,2)*4) ;%
       Brass{ceil(i/2),1}.index=channelsRoughIndex(i,1):channelsRoughIndex(i,2);
+      [ForceinitialIndex,IRinitialIndex] = FindIRstart(IR(channelsRoughIndex(i,1)*4:channelsRoughIndex(i,2)*4),NumOfDataForCycle);
+      Brass{ceil(i/2),1}.rotationstart(1)=ForceinitialIndex;  %% for 125khz   force,mic,..
+      Brass{ceil(i/2),1}.rotationstart(2)=IRinitialIndex;  %% for 500khz  AErmse
+
+      
    else
+     
       Pmma{i/2,1}.Fx=Detrend_Force(channelsRoughIndex(i,1):channelsRoughIndex(i,2),1);
       Pmma{i/2,1}.Fy=Detrend_Force(channelsRoughIndex(i,1):channelsRoughIndex(i,2),2);
       Pmma{i/2,1}.Fz=Detrend_Force(channelsRoughIndex(i,1):channelsRoughIndex(i,2),3);
@@ -131,12 +154,17 @@ for i=1:1:length(channelsRoughIndex)
       Pmma{i/2,1}.IR=IR(channelsRoughIndex(i,1)*4:channelsRoughIndex(i,2)*4); %They have 4 times higher acqusition rates...
       Pmma{i/2,1}.AE=AE(channelsRoughIndex(i,1)*4:channelsRoughIndex(i,2)*4) ;%
       Pmma{i/2,1}.index=channelsRoughIndex(i,1):channelsRoughIndex(i,2);
+      [ForceinitialIndex,IRinitialIndex] = FindIRstart(IR(channelsRoughIndex(i,1)*4:channelsRoughIndex(i,2)*4),NumOfDataForCycle);
+      Pmma{ceil(i/2),1}.rotationstart(1)=ForceinitialIndex;  %% for 125khz   force,mic,..
+      Pmma{ceil(i/2),1}.rotationstart(2)=IRinitialIndex;  %% for 500khz  AErmse
+      
    end
 end
 
 %%
+%%% Now start with IR analysis!!
 
-
+% ForceinitialIndex,IRinitialIndex = FindIRstart(IR,NumOfDataForCycle);
 
 
 
