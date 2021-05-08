@@ -5,7 +5,7 @@ from torch import nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from mat4py import loadmat
-
+import matplotlib.pyplot as plt
 
 # from dataset import FlowDataset
 # from CNN_AE import CNNfeatureFromAE
@@ -179,6 +179,7 @@ def main():
             # All features from CNN is concatenated to from a 5by30 vector for LSTM 
             tillTime=30+i*5
             outputs = model.forward(signalAE_T,signalMic_T,signalForces,tillTime)
+            #OutputForceY.size() torch.Size([1, 125])
             loss = criterion(outputs,signalFy_T[tillTime+5,:])
             optim.zero_grad()
             loss.backward()
@@ -197,9 +198,22 @@ def main():
         end=time.time()
         print("for this training time passed:", end-start)
     
+    #%%
+    
+    plt.figure()
+    plt.plot( range(125),outputs.squeeze(dim=0).detach().numpy())
+    plt.ylabel('Predicted')
+    plt.show()
+    
+    plt.figure()
+    plt.plot( range(125),signalFy[54])
+    plt.ylabel('Real')
+    plt.show()
+    
+    
     #%%    
-    # PATH = './LSTM.pt'
-    # model = torch.load(PATH)
+    PATH = './LSTM.pt'
+    model = torch.load(PATH)
     ##model.load_state_dict(torch.load(PATH,device))
     #%%
     # test trained LSTM model

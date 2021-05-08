@@ -1,4 +1,4 @@
- # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Created on Fri May  7 15:38:46 2021
 
@@ -148,12 +148,12 @@ class LSTMModel(nn.Module):
 
                 
         # LSTMFeature=torch.cat((AE_2d_Features, Mic_2d_Features, Forces_2d_Features), 1)   That might work too.
-        print(LSTMFeature.shape)
+        #print(LSTMFeature.shape)
         LSTMFeature = LSTMFeature.squeeze(dim=0) # adds a 0-th dimension of size 1
         LSTMFeature = LSTMFeature.unsqueeze(dim=1) # adds a 0-th dimension of size 1
         #in a different source it says that Input must be 3 dimensional (Sequence len, batch, input dimensions)
 
-        print(LSTMFeature.shape)
+        #print(LSTMFeature.shape)
         
         LSTMoutput,LSTMhidden =self.lstmcell1(LSTMFeature)  # 
         
@@ -162,7 +162,7 @@ class LSTMModel(nn.Module):
         # Output[0].size()=[1,30,300] output[1][0].size=[2,30,300], output[1][1].size=[2,30,300] 
         #h_n(num_layer*num_directions,batch,hidden_size)
         
-        OutputForceY=F.sigmoid(self.Dense1(output))
+        OutputForceY=F.tanh(self.Dense1(LSTMoutput[-1,:,:]))
 
         
         return OutputForceY
