@@ -8,16 +8,18 @@ from mat4py import loadmat
 
 
 # from dataset import FlowDataset
-from CNN_AE import CNNfeatureFromAE
-from CNN_MIC import CNNfeatureFromMic
-from CNN_FORCE  import CNNfeatureFromForce
+# from CNN_AE import CNNfeatureFromAE
+# from CNN_MIC import CNNfeatureFromMic
+# from CNN_FORCE  import CNNfeatureFromForce
 
+
+from CNN_LSTM_MODEL import LSTMModel
 
 import time
 
 
 #%% Load .Mat File
-data = loadmat('LSTM//channel1Brass.mat')
+# data = loadmat('LSTM//channel1Brass.mat')
 
 #%% Iterate in the file, but channel1brass has to be changed to channel01brass for it to work properly
 
@@ -53,13 +55,13 @@ for filename in files:
     print(filename)
 
 #%% Create Tensors!!
-    signalAE_T=torch.tensor(signalAE)
-    signalMic_T=torch.tensor(signalMic)
-    signalFx_T=torch.tensor(signalFx)
-    signalFy_T=torch.tensor(signalFy)
-    signalFz_T=torch.tensor(signalFz)
-    
-    signalForces=torch.stack((signalFx_T,signalFy_T,signalFz_T))
+signalAE_T=torch.tensor(signalAE)
+signalMic_T=torch.tensor(signalMic)
+signalFx_T=torch.tensor(signalFx)
+signalFy_T=torch.tensor(signalFy)
+signalFz_T=torch.tensor(signalFz)
+
+signalForces=torch.stack((signalFx_T,signalFy_T,signalFz_T))
 
 
 #%%
@@ -103,7 +105,7 @@ def main():
 
 #%%
     # hyper-parameters for LSTM
-    num_epochs = 100
+    num_epochs = 3
     lr = 0.001
     input_size = 17 # do not change input size
     hidden_size = 128
@@ -117,20 +119,28 @@ def main():
     FeatureForAll=30;
     beta1 = 0.5 # beta1 value for Adam optimizer
     
-    CNN_AE = CNNfeatureFromAE(Feature_dim=FeatureForAll).to(device)
-    CNN_MIC = CNNfeatureFromMic(Feature_dim=FeatureForAll).to(device)
-    CNN_FORCE = CNNfeatureFromForce(Feature_dim=FeatureForAll).to(device)
-
-
+    # CNN_AE = CNNfeatureFromAE(Feature_dim=FeatureForAll).to(device)
+    # CNN_MIC = CNNfeatureFromMic(Feature_dim=FeatureForAll).to(device)
+    # CNN_FORCE = CNNfeatureFromForce(Feature_dim=FeatureForAll).to(device)
+    
+    model = LSTMModel(cnnAE_Feature=40, cnnMIC_Feature=40,  cnnFORCE_Feature=20, hidden_size=300, num_layers=2, dropout=0.2)
+    
+    
+    
+    
     # model = FlowLSTM(
     #     input_size=input_size, 
     #     hidden_size=hidden_size, 
     #     num_layers=num_layers, 
     #     dropout=dropout
     # ).to(device)
+    
+    
+    
 #%%
     # define your LSTM loss function here
     # loss_func = ?
+    
     criterion=nn.MSELoss()
     LossInEpoch=np.zeros(num_epochs)
     
@@ -139,124 +149,126 @@ def main():
     
     # define optimizer for CNN feature models.
     
-    optim_AE = Adam(dis.parameters(), lr=lr_AE,betas=(beta1, 0.999))
-    optim_Mic = Adam(gen.parameters(), lr=lr_MIC,betas=(beta1, 0.999))
-    optim_Force = Adam(gen.parameters(), lr=lr_Force,betas=(beta1, 0.999))
+    # optim_AE = Adam(dis.parameters(), lr=lr_AE,betas=(beta1, 0.999))
+    # optim_Mic = Adam(gen.parameters(), lr=lr_MIC,betas=(beta1, 0.999))
+    # optim_Force = Adam(gen.parameters(), lr=lr_Force,betas=(beta1, 0.999))
     
     for epoch in range(num_epochs):
         start = time.time() #record run TIME
 
-        for n_batch, (in_batch, label) in enumerate(train_loader):
-            in_batch, label = in_batch.to(device), label.to(device)  
+        # for n_batch, (in_batch, label) in enumerate(train_loader):
+        #     in_batch, label = in_batch.to(device), label.to(device)  
+        
+        for i in range(5):
             
-
             # ForceX,ForceY,ForceZ,FFT_AE,FFT_MIC = in_batch.ForceX, in_batch.ForceY, in_batch.ForceZ,in_batch.FFTAE,in_batch.FFTMIC
            
-            AE_features=CNN_AE(FFT_AE)
-            Mic_features=CNN_MIC(FFT_MIC)            
-            # ForceX_features=CNN_FORCE(ForceX)           
-            # ForceY_features=CNN_FORCE(ForceY)           
-            # ForceZ_features=CNN_FORCE(ForceZ)       
-            #Vector 1 x  FeatureForAll is generated for all signals, same amount of features(30) so 1x30 vector size
+            # AE_features=CNN_AE(FFT_AE)
+            # Mic_features=CNN_MIC(FFT_MIC)            
+            # # ForceX_features=CNN_FORCE(ForceX)           
+            # # ForceY_features=CNN_FORCE(ForceY)           
+            # # ForceZ_features=CNN_FORCE(ForceZ)       
+            # #Vector 1 x  FeatureForAll is generated for all signals, same amount of features(30) so 1x30 vector size
             
-            Force_features = CNN_FORCE(signalForces)
+            # Force_features = CNN_FORCE(signalForces)
             
             
             
-            LSTMinput=torch.cat((AE_features, Mic_features, Force_features), 0)
+            # LSTMinput=torch.cat((AE_features, Mic_features, Force_features), 0)
             
             # All features from CNN is concatenated to from a 5by30 vector for LSTM 
-            tillTime=15
-            outputs = model.forward(AE,Mic,Forces,tillTimeT)
-            loss = criterion(outputs,signalFy_T[tillTimeT+5=20,:])
+            tillTime=30+i*5
+            outputs = model.forward(signalAE_T,signalMic_T,signalForces,tillTime)
+            loss = criterion(outputs,signalFy_T[tillTime+5,:])
             optim.zero_grad()
             loss.backward()
             optim.step()
-
+            
+            print("loss is calculated as:",loss.item())
             # print loss while training
         
-            if (n_batch + 1) % 81 == 0:
-                print("Epoch: [{}/{}], Batch: {}, Loss: {}".format(
-                    epoch, num_epochs, n_batch, loss.item()))
-                LossInEpoch[epoch] =  loss.item()
-                print("loss is saved in a list as:",LossInEpoch[epoch])
+            # if (n_batch + 1) % 81 == 0:
+            #     print("Epoch: [{}/{}], Batch: {}, Loss: {}".format(
+            #         epoch, num_epochs, n_batch, loss.item()))
+            #     LossInEpoch[epoch] =  loss.item()
+            #     print("loss is saved in a list as:",LossInEpoch[epoch])
 
             
         end=time.time()
         print("for this training time passed:", end-start)
     
     #%%    
-    PATH = './LSTM.pt'
-    model = torch.load(PATH)
+    # PATH = './LSTM.pt'
+    # model = torch.load(PATH)
     ##model.load_state_dict(torch.load(PATH,device))
     #%%
     # test trained LSTM model
-    l1_err, l2_err = 0, 0
-    l1_loss = nn.L1Loss()
-    l2_loss = nn.MSELoss()
-    model.eval()
-    with torch.no_grad():
-        for n_batch, (in_batch, label) in enumerate(test_loader):
-            in_batch, label = in_batch.to(device), label.to(device)
+    # l1_err, l2_err = 0, 0
+    # l1_loss = nn.L1Loss()
+    # l2_loss = nn.MSELoss()
+    # model.eval()
+    # with torch.no_grad():
+    #     for n_batch, (in_batch, label) in enumerate(test_loader):
+    #         in_batch, label = in_batch.to(device), label.to(device)
             
-            pred = model.test(in_batch.to(device))
+    #         pred = model.test(in_batch.to(device))
 
-            l1_err += l1_loss(pred.to(device), label).item()
-            l2_err += l2_loss(pred.to(device), label).item()
+    #         l1_err += l1_loss(pred.to(device), label).item()
+    #         l2_err += l2_loss(pred.to(device), label).item()
 
-    print("Test L1 error:", l1_err)
-    print("Test L2 error:", l2_err)
+    # print("Test L1 error:", l1_err)
+    # print("Test L2 error:", l2_err)
 
 
     # visualize the prediction comparing to the ground truth
 
     #%% Try Any Number from the test set of 10000 data
-    testID=60
-    if device is 'cpu':
-        predforprint = pred.detach().numpy()[testID,:,:]
-        labelforprint = label.detach().numpy()[testID,:,:]
-    else:
-        predforprint = pred.detach().cpu().numpy()[testID,:,:]
-        labelforprint = label.detach().cpu().numpy()[testID,:,:]
+    # testID=60
+    # if device is 'cpu':
+    #     predforprint = pred.detach().numpy()[testID,:,:]
+    #     labelforprint = label.detach().numpy()[testID,:,:]
+    # else:
+    #     predforprint = pred.detach().cpu().numpy()[testID,:,:]
+    #     labelforprint = label.detach().cpu().numpy()[testID,:,:]
 
-    r = []
-    num_points = 17
-    interval = 1./num_points
-    x = int(num_points/2)
-    for j in range(-x,x+1):
-        r.append(interval*j)
+    # r = []
+    # num_points = 17
+    # interval = 1./num_points
+    # x = int(num_points/2)
+    # for j in range(-x,x+1):
+    #     r.append(interval*j)
 
-    from matplotlib import pyplot as plt
-    plt.figure()
-    for i in range(1, len(predforprint)):
-        c = (i/(num_points+1), 1-i/(num_points+1), 0.5)
-        plt.plot(predforprint[i], r, label='t = %s' %(i), c=c)
-    plt.xlabel('velocity [m/s]')
-    plt.ylabel('r [m]')
-    plt.legend(bbox_to_anchor=(1,1),fontsize='x-small')
-    plt.show()
+    # from matplotlib import pyplot as plt
+    # plt.figure()
+    # for i in range(1, len(predforprint)):
+    #     c = (i/(num_points+1), 1-i/(num_points+1), 0.5)
+    #     plt.plot(predforprint[i], r, label='t = %s' %(i), c=c)
+    # plt.xlabel('velocity [m/s]')
+    # plt.ylabel('r [m]')
+    # plt.legend(bbox_to_anchor=(1,1),fontsize='x-small')
+    # plt.show()
 
-    plt.figure()
-    for i in range(1, len(labelforprint)):
-        c = (i/(num_points+1), 1-i/(num_points+1), 0.5)
-        plt.plot(labelforprint[i], r, label='t = %s' %(i), c=c)
-    plt.xlabel('True velocity [m/s]')
-    plt.ylabel('r [m]')
-    plt.legend(bbox_to_anchor=(1,1),fontsize='x-small')
-    plt.show()
+    # plt.figure()
+    # for i in range(1, len(labelforprint)):
+    #     c = (i/(num_points+1), 1-i/(num_points+1), 0.5)
+    #     plt.plot(labelforprint[i], r, label='t = %s' %(i), c=c)
+    # plt.xlabel('True velocity [m/s]')
+    # plt.ylabel('r [m]')
+    # plt.legend(bbox_to_anchor=(1,1),fontsize='x-small')
+    # plt.show()
 
 
-    plt.figure()
-    plt.plot( range(num_epochs),LossInEpoch)
-    plt.xlabel('Number of Epoch')
-    plt.ylabel('Loss MSELoss')
-    plt.legend(bbox_to_anchor=(1,1),fontsize='x-small')
-    plt.show()
+    # plt.figure()
+    # plt.plot( range(num_epochs),LossInEpoch)
+    # plt.xlabel('Number of Epoch')
+    # plt.ylabel('Loss MSELoss')
+    # plt.legend(bbox_to_anchor=(1,1),fontsize='x-small')
+    # plt.show()
     
         
-    PATH = './LSTM.pt'
+    # PATH = './LSTM.pt'
     
-    torch.save(model, PATH)
+    # torch.save(model, PATH)
     
 #%%    
 if __name__ == "__main__":
