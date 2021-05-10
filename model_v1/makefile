@@ -24,7 +24,7 @@ help:
 	@echo " "
 	@echo " make activate: Tells you what command to run to activate the virtual environment"
 	@echo " "
-	@echo "	make run: Run the application (in development mode)."
+	@echo "	make run: Activate the right environment and run the application (in development mode)."
 	@echo " "
 	@echo "	make cloc: Count Lines Of Code (and comments) by language, excluding builds and libraries."
 	@echo "----------------------------------"
@@ -73,8 +73,8 @@ clean:
 # Run the Development Application:
 ####
 run:
-	make activate; \
-	${PYTHON} __main__.py
+	($(CONDA_ACTIVATE) ${VENV_NAME}; \
+	${PYTHON} __main__.py)
 
 ####
 # Count Lines of Code (for fun):
