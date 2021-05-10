@@ -145,7 +145,7 @@ def train(
         # Run over training data:
         for batch_idx, ex in enumerate(train_loader):
             stack = ex['stack']
-            num_in_batch = len(ex['sample_rate'])
+            num_in_batch = len(ex['spindle_speed'])
             for j in range(num_in_batch):
                 total_num_channels = stack['signalAE'][j].shape[0]
                 channel_nums = [*range(total_num_channels)]

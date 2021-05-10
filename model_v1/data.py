@@ -44,7 +44,7 @@ class MachiningDataset(Dataset):
         for exp in experiments:
             for stack in exp.training_stacks:
                 self.examples.append(DataExample(
-                    sample_rate=exp.sample_rate,
+                    spindle_speed=exp.spindle_speed,
                     feed_rate=exp.feed_rate,
                     depth=exp.depth,
                     stack=stack
@@ -75,7 +75,7 @@ class DataExample:
     about a machining experiment from `ExperimentData` with a stack of all 
     learnable data from `TrainingStack`.
     """
-    sample_rate: int  # [kHz], e.g.: 40k, 60k, 80k
+    spindle_speed: int  # [kHz], e.g.: 40k, 60k, 80k
     feed_rate: int  # [mm/s]
     depth: int  # [um]
     stack: TrainingStack
@@ -87,7 +87,7 @@ class ExperimentData:
     Collection of `ChannelData` and `TrainingStack`s for one experiment (e.g. `40k-15mm-100um`).
     """
     dir_name: str
-    sample_rate: int  # [kHz], e.g.: 40k, 60k, 80k
+    spindle_speed: int  # [kHz], e.g.: 40k, 60k, 80k
     feed_rate: int  # [mm/s]
     depth: int  # [um]
     data: List[ChannelData]  # List of `ChannelData`, *sorted* by `channel_num`
@@ -106,7 +106,7 @@ class ExperimentData:
             f"\t Collecting experiment {dir_name} . . ."
         )
         # Extract experiment metadata (parameters) from `dir_name`:
-        sample_rate, feed_rate, depth = [
+        spindle_speed, feed_rate, depth = [
             int(x) for x in re.findall(r'\d+', dir_name)
         ]
         # Sort `ChannelData` in place:
@@ -129,7 +129,7 @@ class ExperimentData:
         # i.e. not `signalForces`)
         stack_fields: Dict[str, str] = {
             'signalAE': 'AE_FFT_freq',
-            'signalMic': 'Mic_FFT_BG_freq',
+            'signalMic': 'Mic_FFT_freq',
             'signalFx': 'Fx_mu',
             'signalFy': 'Fy_mu',
             'signalFz': 'Fz_mu'
@@ -166,7 +166,7 @@ class ExperimentData:
         # Build and return `ExperimentData`:
         return cls(
             dir_name=dir_name,
-            sample_rate=sample_rate,
+            spindle_speed=spindle_speed,
             feed_rate=feed_rate,
             depth=depth,
             data=data,
