@@ -5,8 +5,8 @@ import torch
 import ulid
 
 from loader import load_all_mats
-from model import LSTMModel, load_preconfigured_model
-from train import TrainHyperparams, train
+from model_v3 import LSTMModel, load_preconfigured_model
+from train_v2 import train
 from logger import logger
 logger.setLevel('VERBOSE')
 
@@ -21,4 +21,4 @@ model = load_preconfigured_model()
 trained_model = train(model, dataset)
 
 # Save the final model:
-torch.save(trained_model, f'model_v2_trained_{ulid.new()}.pth')
+torch.save(trained_model, f'model_v3_trained_{ulid.new()}.pth')
