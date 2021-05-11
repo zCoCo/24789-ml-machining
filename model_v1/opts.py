@@ -27,7 +27,7 @@ def get_opts():
                         help='Where data files should be loaded from.')
 
     # Training:
-    parser.add_argument('--num-epochs', type=int, default=10,
+    parser.add_argument('--num-epochs', type=int, default=15,
                         help='Default number of training epochs.')
     parser.add_argument('--lr', type=float, default=0.0005,
                         help='Default learning rate for training.')
