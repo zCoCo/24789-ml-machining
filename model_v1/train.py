@@ -136,15 +136,18 @@ def train(
 
     # Setup:
     LossInEpoch=np.zeros(hyperparams.num_epochs)
+    LossInEpoch_val=np.zeros(hyperparams.num_epochs)
     criterion = nn.MSELoss()
-    beta1=0.6
+    beta1=0.7
     optimizer = optim.Adam(model.parameters(), lr=hyperparams.lr,betas=(beta1, 0.999))
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
 
     logger.info("Beginning training . . .")
 
     for epoch in range(hyperparams.num_epochs):
         epoch_start_time = time.time()  # record run TIME
-
+        running_loss=0
+        numberoflossitem=0
         # Run over training data:
         for batch_idx, ex in enumerate(train_loader):
             stack = ex['stack']
@@ -167,19 +170,58 @@ def train(
                         outputs.double().flatten(),
                         stack['signalFy'][j][tillChannelN + step, :]
                     )
+                    
+                    running_loss += loss.item()
+                    numberoflossitem+=1
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
+            
+        scheduler.step()
+        
+        running_loss_val=0
+        numberoflossitem_val=0
+        
+        for batch_idx, ex in enumerate(val_loader):
+            stack = ex['stack']
+            num_in_batch = len(ex['spindle_speed'])
+            for j in range(num_in_batch):
+                total_num_channels = stack['signalAE'][j].shape[0]
+                channel_nums = [*range(total_num_channels)]
 
+                start = hyperparams.channel_forecast_start
+                step = hyperparams.channel_forecast_step
+                stop = total_num_channels - step  # leave one more step to forecast
+
+                for tillChannelN in channel_nums[start:stop:step]:
+                    outputs = model.forward(
+                        stack['signalAE'][j], stack['signalMic'][j], stack['signalForces'][j],
+                        tillChannelN
+                    )
+                    # OutputForceY.size() torch.Size([1, 125])
+                    loss = criterion(
+                        outputs.double().flatten(),
+                        stack['signalFy'][j][tillChannelN + step, :]
+                    )
+                    
+                    running_loss_val += loss.item()
+                    numberoflossitem_val+=1
         # ! TODO: Test against validation set
-        LossInEpoch[epoch] =  loss.item()
+        LossInEpoch[epoch] =  running_loss/numberoflossitem
+        LossInEpoch_val[epoch] =  running_loss_val/numberoflossitem_val
+
         epoch_end_time = time.time()
         logger.verbose(  # type: ignore
             f"Epoch [{epoch}/{hyperparams.num_epochs-1}]: {(epoch_end_time-epoch_start_time):5.1f}s \t "
-            f"— Training Loss: {loss.item()} \t"
-            f"— Validation Loss: NaN \t"
+            f"— Running Training Loss: {LossInEpoch[epoch]} \t"
+            f"— Validation Loss: {LossInEpoch_val[epoch]} \t"
         )
 
+
+
+
+    
+                       
     # ! TODO: Plot loss against train and validation sets over training
     plt.figure()
     plt.plot( range(hyperparams.num_epochs),LossInEpoch)
@@ -191,9 +233,9 @@ def train(
     # ! TODO: Test against test set holdout after training
 
     # Plot Results for end of validation:
-    for i in range(4):
+    for i in range(8):
         
-        j=random.randrange(4)
+        j=random.randrange(6)
         tillChannelN=random.randrange(20,40)
         
         outputs = model.forward(
@@ -206,13 +248,24 @@ def train(
     
         y_pred = outputs.squeeze(dim=0).detach().numpy()
         y_real = stack['signalFy'][j][tillChannelN+step, :].numpy()
-        plt.plot(np.linspace(0, 360, y_pred.size), y_pred)
+        
+        y_real_current = stack['signalFy'][j][tillChannelN, :].numpy()
+        y_real_10previous = stack['signalFy'][j][tillChannelN-hyperparams.channel_forecast_step, :].numpy()
+
+        plt.plot(np.linspace(0, 360, y_pred.size), y_pred,linewidth=3.0)
         plt.plot(np.linspace(0, 360, y_real.size), y_real)
-    
+        plt.plot(np.linspace(0, 360, y_real.size), y_real_current,linewidth=3.0)
+        plt.plot(np.linspace(0, 360, y_real.size), y_real_10previous)
+        plt.xticks(range(361)[::60])
+        plt.gca().margins(0)
+
         plt.xlabel('Bit Rotation Angle [deg]')
         plt.ylabel('Normalized Force')
-        plt.legend((f'Prediction', 'Real'))
+        plt.legend((f'Prediction (+{hyperparams.channel_forecast_step})', f'Real (+{hyperparams.channel_forecast_step})', f'Current Ch ({tillChannelN})', f'(-{hyperparams.channel_forecast_step}) Previous'))
+
         plt.title(f'LSTM Force Prediction for {j} data Channel {tillChannelN+step}')
         plt.show()
 
+
+        
     return model

@@ -27,13 +27,13 @@ def get_opts():
                         help='Where data files should be loaded from.')
 
     # Training:
-    parser.add_argument('--num-epochs', type=int, default=10,
+    parser.add_argument('--num-epochs', type=int, default=3,
                         help='Default number of training epochs.')
     parser.add_argument('--lr', type=float, default=0.0005,
                         help='Default learning rate for training.')
-    parser.add_argument('--batch-size', type=int, default=10,
+    parser.add_argument('--batch-size', type=int, default=14,
                         help='Size of each training batch.')
-    parser.add_argument('--validation-split', type=float, default=0.1,
+    parser.add_argument('--validation-split', type=float, default=0.2,
                         help='Proportion of total dataset which should be used for validation.')
     parser.add_argument('--test-split', type=float, default=0.1,
                         help='Proportion of total dataset which should be used for final testing.')
