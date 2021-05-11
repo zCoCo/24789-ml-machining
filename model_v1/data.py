@@ -128,8 +128,8 @@ class ExperimentData:
         # field (for all of those which are directly mapped,
         # i.e. not `signalForces`)
         stack_fields: Dict[str, str] = {
-            'signalAE': 'AE_FFT_freq',
-            'signalMic': 'Mic_FFT_freq',
+            'signalAE': 'AE_FFT_val',
+            'signalMic': 'Mic_FFT_val',
             'signalFx': 'Fx_mu',
             'signalFy': 'Fy_mu',
             'signalFz': 'Fz_mu'
