@@ -433,7 +433,7 @@ def load_preconfigured_model() -> LSTMModel:
         LSTM=LSTMHyperparams(
             hidden_size=300,
             nr_of_layers=2,
-            dropout=0.2
+            dropout=0.5
         )
     )
 

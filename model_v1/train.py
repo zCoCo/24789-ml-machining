@@ -5,6 +5,7 @@ Training methods for `LSTMModel`.
 """
 from typing import Optional, List, Any, Dict, Tuple, Union
 import attr
+import random
 
 import time
 import numpy as np
@@ -134,8 +135,10 @@ def train(
     )
 
     # Setup:
+    LossInEpoch=np.zeros(hyperparams.num_epochs)
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=hyperparams.lr)
+    beta1=0.6
+    optimizer = optim.Adam(model.parameters(), lr=hyperparams.lr,betas=(beta1, 0.999))
 
     logger.info("Beginning training . . .")
 
@@ -169,7 +172,7 @@ def train(
                     optimizer.step()
 
         # ! TODO: Test against validation set
-
+        LossInEpoch[epoch] =  loss.item()
         epoch_end_time = time.time()
         logger.verbose(  # type: ignore
             f"Epoch [{epoch}/{hyperparams.num_epochs-1}]: {(epoch_end_time-epoch_start_time):5.1f}s \t "
@@ -178,22 +181,38 @@ def train(
         )
 
     # ! TODO: Plot loss against train and validation sets over training
+    plt.figure()
+    plt.plot( range(hyperparams.num_epochs),LossInEpoch)
+    plt.xlabel('Number of Epoch')
+    plt.ylabel('Loss MSELoss')
+    plt.legend(bbox_to_anchor=(1,1),fontsize='x-small')
+    plt.show()
 
     # ! TODO: Test against test set holdout after training
 
     # Plot Results for end of validation:
-    sns.set_theme()
-    plt.figure()
-
-    y_pred = outputs.squeeze(dim=0).detach().numpy()
-    y_real = stack['signalFy'][j][tillChannelN+step, :].numpy()
-    plt.plot(np.linspace(0, 360, y_pred.size), y_pred)
-    plt.plot(np.linspace(0, 360, y_real.size), y_real)
-
-    plt.xlabel('Bit Rotation Angle [deg]')
-    plt.ylabel('Normalized Force')
-    plt.legend(('Prediction', 'Real'))
-    plt.title(f'LSTM Force Prediction for Channel {tillChannelN+step}')
-    plt.show()
+    for i in range(4):
+        
+        j=random.randrange(4)
+        tillChannelN=random.randrange(20,40)
+        
+        outputs = model.forward(
+            stack['signalAE'][j], stack['signalMic'][j], stack['signalForces'][j],
+            tillChannelN
+        )
+                    
+        sns.set_theme()
+        plt.figure()
+    
+        y_pred = outputs.squeeze(dim=0).detach().numpy()
+        y_real = stack['signalFy'][j][tillChannelN+step, :].numpy()
+        plt.plot(np.linspace(0, 360, y_pred.size), y_pred)
+        plt.plot(np.linspace(0, 360, y_real.size), y_real)
+    
+        plt.xlabel('Bit Rotation Angle [deg]')
+        plt.ylabel('Normalized Force')
+        plt.legend((f'Prediction', 'Real'))
+        plt.title(f'LSTM Force Prediction for {j} data Channel {tillChannelN+step}')
+        plt.show()
 
     return model
