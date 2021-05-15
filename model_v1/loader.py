@@ -47,7 +47,7 @@ def load_all_mats(data_dir: Optional[str] = None, default_key: str = 'root') -> 
         """
         *name_parts, ext = item_name.split('.')
         name = '.'.join(name_parts)
-        if ext == 'mat':
+        if item_name[0] != '.' and ext == 'mat':
             data[dir_key].append(ChannelData.from_mat(item_dir, name, ext))
 
         item_path = os.path.join(item_dir, item_name)

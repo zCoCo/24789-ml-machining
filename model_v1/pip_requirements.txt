@@ -6,7 +6,6 @@ numpy
 scipy
 matplotlib
 seaborn
-torch==1.8.1
 ipykernel
 termcolor
 verboselogs

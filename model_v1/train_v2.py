@@ -52,6 +52,13 @@ def train(
     """
     Trains the given `LSTMModel` `model` on the given `data` and returns the trained model.
     """
+    # check if cuda available
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    logger.info( # type: ignore
+        f"Using device {device}."
+    )
+    model.to(device)
+
     if hyperparams is None:
         hyperparams = TrainHyperparams(
             num_epochs=opts.num_epochs,
@@ -156,14 +163,15 @@ def train(
 
                 for tillChannelN in channel_nums[start:stop:step]:
                     outputs = model.forward(
-                        stack['signalAE'][j], stack['signalMic'][j], stack['signalForces'][j],
-                        tillChannelN
-                    )
+                        stack['signalAE'][j].to(device), stack['signalMic'][j].to(device), stack['signalForces'][j].to(device),
+                        tillChannelN,
+                        device=device
+                    ).to(device)
                     # OutputForceY.size() torch.Size([1, 125])
                     loss = criterion(
                         outputs.double().flatten(),
-                        stack['signalFy'][j][tillChannelN + step, :]
-                    )
+                        stack['signalFy'][j][tillChannelN + step, :].to(device)
+                    ).to(device)
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
@@ -185,8 +193,8 @@ def train(
     sns.set_theme()
     plt.figure()
 
-    y_pred = outputs.squeeze(dim=0).detach().numpy()
-    y_real = stack['signalFy'][j][tillChannelN+step, :].numpy()
+    y_pred = outputs.squeeze(dim=0).cpu().detach().numpy()
+    y_real = stack['signalFy'][j][tillChannelN+step, :].cpu().detach().numpy()
     plt.plot(np.linspace(0, 360, y_pred.size), y_pred)
     plt.plot(np.linspace(0, 360, y_real.size), y_real)
 

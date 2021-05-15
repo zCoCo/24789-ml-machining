@@ -39,6 +39,10 @@ init:
 	
 	# Load the correct version of python and setup the virtual environment:
 	conda create --name ${VENV_NAME} python=${PYTHONVERSION} --yes
+
+	# Build torch with cuda:
+	($(CONDA_ACTIVATE) ${VENV_NAME}; \
+	conda install pytorch torchvision cudatoolkit=11.0 -c pytorch)
 	
 	# Install pip dependencies:
 	make update

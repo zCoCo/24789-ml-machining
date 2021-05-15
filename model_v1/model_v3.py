@@ -10,7 +10,7 @@ edited(2021_05_10): Connor W. Colombo (colombo@cmu.edu)
 """
 from __future__ import annotations  # Activate postponed annotations (for using classes as return type in their own methods)
 
-from typing import List, Any, Tuple, Union
+from typing import List, Any, Tuple, Union, Optional
 import attr
 import torch
 import torch.nn as nn
@@ -300,17 +300,16 @@ class LSTMModel(nn.Module):
     def from_hyperparams(cls, hyperparams: ModelHyperparams) -> LSTMModel:
         return cls(*hyperparams.properties)
 
-    def forward(self, AE, Mic, Forces, tillChannelN):
-
+    def forward(self, AE, Mic, Forces, tillChannelN, device):
         #  There will be sensor values from 1 to n and m number of features will be produced let`s say for LSTM, Therefore n x m
 
         AE_2d_Features = torch.empty(
-            1, tillChannelN, self.CNN_AE_linear_layers[-1][1])
+            1, tillChannelN, self.CNN_AE_linear_layers[-1][1]).to(device)
         Mic_2d_Features = torch.empty(
-            1, tillChannelN, self.CNN_MIC_linear_layers[-1][1])
+            1, tillChannelN, self.CNN_MIC_linear_layers[-1][1]).to(device)
         Forces_2d_Features = torch.empty(
-            1, tillChannelN, self.CNN_FORCE_linear_layers[-1][1])
-        LSTMFeature = torch.empty(1, tillChannelN, self.input_size)
+            1, tillChannelN, self.CNN_FORCE_linear_layers[-1][1]).to(device)
+        LSTMFeature = torch.empty(1, tillChannelN, self.input_size).to(device)
 
         AE = AE.unsqueeze(dim=0)
         Mic = Mic.unsqueeze(dim=0)
@@ -338,7 +337,7 @@ class LSTMModel(nn.Module):
             Forces_2d_Features[0, i:i + 1, :] = output
 
             LSTMFeature[0:1, i:i + 1, :] = torch.cat((AE_2d_Features[0:1, i:i + 1, :], Mic_2d_Features[0:1, i:i + 1, :],
-                                                      Forces_2d_Features[0:1, i:i + 1, :]), 2)
+                                                      Forces_2d_Features[0:1, i:i + 1, :]), 2).to(device)
 
         # adds a 0-th dimension of size 1
         LSTMFeature = LSTMFeature.squeeze(dim=0)
@@ -348,7 +347,7 @@ class LSTMModel(nn.Module):
 
         # print(LSTMFeature.shape)
 
-        LSTMoutput, LSTMhidden = self.lstmcell1(LSTMFeature)  #
+        LSTMoutput, LSTMhidden = self.lstmcell1(LSTMFeature.to(device))  #
 
         # Output is output, h_n, c_n where : output (Seq_len,batch, num_directions*hidden_size),
         # if input is [batch_size, sequence_length, input_dim],LSTMFeature.size()=[1, 30, 100]
