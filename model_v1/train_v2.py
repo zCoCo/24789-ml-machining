@@ -52,7 +52,9 @@ def train(
     """
     Trains the given `LSTMModel` `model` on the given `data` and returns the trained model.
     """
-    # check if cuda available
+    sns.set_theme()
+
+    # check if cuda available and use it:
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     logger.info( # type: ignore
         f"Using device {device}."
@@ -146,11 +148,50 @@ def train(
 
     logger.info("Beginning training . . .")
 
+    train_loss_history: List[float] = []
+    validation_loss_history: List[float] = []
     for epoch in range(hyperparams.num_epochs):
         epoch_start_time = time.time()  # record run TIME
 
         # Run over training data:
+        model.train()
+        train_loss_history.append(0)
+        num_inst: int = 0 # number of instances in epoch
         for batch_idx, ex in enumerate(train_loader):
+            stack = ex['stack']
+            num_in_batch = len(ex['spindle_speed'])
+            for j in range(num_in_batch):
+                total_num_channels = stack['signalAE'][j].shape[0]
+                channel_nums = [*range(total_num_channels)]
+
+                start = hyperparams.channel_forecast_start
+                step = hyperparams.channel_forecast_step
+                stop = total_num_channels - step  # leave one more step to forecast
+
+                for tillChannelN in channel_nums[start:stop:step]:
+                    optimizer.zero_grad()
+                    outputs = model.forward(
+                        stack['signalAE'][j].to(device), stack['signalMic'][j].to(device), stack['signalForces'][j].to(device),
+                        tillChannelN,
+                        device=device
+                    ).to(device)
+                    # OutputForceY.size() torch.Size([1, 125])
+                    loss = criterion(
+                        outputs.double().flatten(),
+                        stack['signalFy'][j][tillChannelN + step, :].to(device)
+                    ).to(device)
+                    loss.backward()
+                    optimizer.step()
+
+                    train_loss_history[-1] += loss.item() # sum up across all instances in epoch
+                    num_inst += 1
+        train_loss_history[-1] = train_loss_history[-1] / num_inst # average across all instances in epoch
+
+        # Compare performance on validation set:
+        model.eval()
+        validation_loss_history.append(0)
+        num_inst: int = 0 # number of instances in epoch
+        for batch_idx, ex in enumerate(val_loader):
             stack = ex['stack']
             num_in_batch = len(ex['spindle_speed'])
             for j in range(num_in_batch):
@@ -172,29 +213,69 @@ def train(
                         outputs.double().flatten(),
                         stack['signalFy'][j][tillChannelN + step, :].to(device)
                     ).to(device)
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
 
-        # ! TODO: Test against validation set
+                    validation_loss_history[-1] += loss.item() # sum up across all instances in epoch
+                    num_inst += 1
+        validation_loss_history[-1] = validation_loss_history[-1] / num_inst # average across all instances in epoch
 
         epoch_end_time = time.time()
         logger.verbose(  # type: ignore
             f"Epoch [{epoch}/{hyperparams.num_epochs-1}]: {(epoch_end_time-epoch_start_time):5.1f}s \t "
-            f"— Training Loss: {loss.item()} \t"
-            f"— Validation Loss: NaN \t"
+            f"— Mean Training Loss: {train_loss_history[-1]} \t"
+            f"— Mean Validation Loss: {validation_loss_history[-1]} \t"
         )
 
-    # ! TODO: Plot loss against train and validation sets over training
+    
+    # Collect performance of trained model on test set:
+    model.eval()
+    test_mean_mse = 0
+    num_inst: int = 0 # number of instances in test set
+    for batch_idx, ex in enumerate(test_loader):
+        stack = ex['stack']
+        num_in_batch = len(ex['spindle_speed'])
+        for j in range(num_in_batch):
+            total_num_channels = stack['signalAE'][j].shape[0]
+            channel_nums = [*range(total_num_channels)]
 
-    # ! TODO: Test against test set holdout after training
+            start = hyperparams.channel_forecast_start
+            step = hyperparams.channel_forecast_step
+            stop = total_num_channels - step  # leave one more step to forecast
 
-    # Plot Results for end of validation:
-    sns.set_theme()
+            for tillChannelN in channel_nums[start:stop:step]:
+                outputs = model.forward(
+                    stack['signalAE'][j].to(device), stack['signalMic'][j].to(device), stack['signalForces'][j].to(device),
+                    tillChannelN,
+                    device=device
+                ).to(device)
+                # OutputForceY.size() torch.Size([1, 125])
+                loss = criterion(
+                    outputs.double().flatten(),
+                    stack['signalFy'][j][tillChannelN + step, :].to(device)
+                ).to(device)
+
+                test_mean_mse += loss.item() # sum up across all instances in epoch
+                num_inst += 1
+    test_mean_mse = test_mean_mse / num_inst # average across all instances in epoch
+
+    logger.success(  # type: ignore
+        f"Training complete. "
+        f"Mean MSE on Test Set: {test_mean_mse} "
+    )
+
+    # Plot performance over training:
+    plt.figure()
+    plt.plot(train_loss_history)
+    plt.plot(validation_loss_history)
+    plt.xlabel('Epoch Number')
+    plt.ylabel('Mean MSE Loss in Epoch')
+    plt.legend(('Training Set', 'Validation Set'))
+    plt.show()
+
+    # Plot Results for end of test set:
     plt.figure()
 
-    y_pred = outputs.squeeze(dim=0).cpu().detach().numpy()
-    y_real = stack['signalFy'][j][tillChannelN+step, :].cpu().detach().numpy()
+    y_pred = outputs.squeeze(dim=0).detach().cpu().numpy()
+    y_real = stack['signalFy'][j][tillChannelN+step, :].detach().cpu().numpy()
     plt.plot(np.linspace(0, 360, y_pred.size), y_pred)
     plt.plot(np.linspace(0, 360, y_real.size), y_real)
 
