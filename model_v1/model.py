@@ -293,7 +293,7 @@ class LSTMModel(nn.Module):
 
         # the final output should be 17 data points.
         self.Dense1 = nn.Linear(self.hidden_size, 180)
-        self.Dense1Act = nn.Tanh()
+        # self.Dense1Act = nn.Linear()
         # self.Dense2=nn.Linear(34,17) #It generates 17 data points
 
     @classmethod
@@ -354,8 +354,8 @@ class LSTMModel(nn.Module):
         # if input is [batch_size, sequence_length, input_dim],LSTMFeature.size()=[1, 30, 100]
         # Output[0].size()=[1,30,300] output[1][0].size=[2,30,300], output[1][1].size=[2,30,300]
         # h_n(num_layer*num_directions,batch,hidden_size)
-
-        OutputForceY = F.tanh(self.Dense1(LSTMoutput[-1, :, :]))
+        #F.tanh()
+        OutputForceY = self.Dense1(LSTMoutput[-1, :, :])
 
         return OutputForceY
 
@@ -368,19 +368,24 @@ def load_preconfigured_model() -> LSTMModel:
     hyperparams = ModelHyperparams(
         CNN_AE=CNNHyperparams(
             # Enter a list for each element [in_channels,out_channels,kernel_size,stride]:
-            conv_layers=[[1, 3, 61, 20],
-                         [3, 5, 23, 10],
-                         [5, 8, 4, 2]],
+             
+                #start with 37501 points
+            conv_layers=[[1, 10, 31, 10],      #3748 points in 3 channels  
+                         [10, 20, 28, 10],      # 373 points in 5 channels
+                         [20, 32, 13, 5],       #73
+                         [32, 50, 7, 2 ],       #34
+                         [50, 5 , 4 , 2 ]],       #16 points in 8 channels 
+            
             # Enter a list for each element [kernel_size,stride] or False if no pool layer:
-            MaxPoolLayers=[False, False, [4, 2]],
+            MaxPoolLayers=[False, False, False, False, False], # 7 points averaged!!
             # Enter "sigmoid","tanh", "linear" or "relu", everything else="linear":
-            conv_layer_activations=["relu", "relu", "relu"],
+            conv_layer_activations=["relu", "relu", "relu", "relu","relu"],
             # Enter False or num_features for BN, length should be equal to CNN_AE_layers:
-            conv_BN_layers=[3, 5, False],
+            conv_BN_layers=[10, 20, 32,50,5],
             # Enter False or propability of dropout:
-            conv_Dropout_layers=[False, False, False],
+            conv_Dropout_layers=[False, False, False, False,False],
             # Enter tuple (input_size,output_size):
-            linear_layers=[(184, 40)],
+            linear_layers=[(80, 40)],  #23*8
             # Enter "sigmoid","tanh", "identity" or "relu":
             linear_activations=["identity"],
             linear_BN_layers=[False],
@@ -389,19 +394,23 @@ def load_preconfigured_model() -> LSTMModel:
 
         CNN_MIC=CNNHyperparams(
             # Enter a list for each element [in_channels,out_channels,kernel_size,stride]:
-            conv_layers=[[1, 3, 46, 10],
-                         [3, 5, 14, 5],
-                         [5, 8, 4, 2]],
+                           
+            #start with 9376 points
+
+            conv_layers=[[1, 6, 26, 5], #1871
+                         [6, 12, 11, 5], #373
+                         [12, 20, 9, 4], #92
+                         [20, 10, 6, 2]], #44
             # Enter a list for each element [kernel_size,stride] or False if no pool layer:
-            MaxPoolLayers=[False, False, [4, 2]],
+            MaxPoolLayers=[False, False, False, False], #21
             # Enter "sigmoid","tanh", "linear" or "relu", everything else="linear":
-            conv_layer_activations=["relu", "relu", "relu"],
+            conv_layer_activations=["relu", "relu", "relu","relu"],
             # Enter False or num_features for BN, length should be equal to CNN_MIC_layers:
-            conv_BN_layers=[3, 5, False],
+            conv_BN_layers=[6, 12, 20, 10],
             # Enter False or propability of dropout
-            conv_Dropout_layers=[False, False, False],
+            conv_Dropout_layers=[False, False, False,False],
             # Enter tuple (input_size,output_size):
-            linear_layers=[(176, 40)],
+            linear_layers=[(440, 40)],
             # Enter "sigmoid","tanh", "identity" or "relu":
             linear_activations=["identity"],
             linear_BN_layers=[False],
@@ -410,20 +419,19 @@ def load_preconfigured_model() -> LSTMModel:
 
         CNN_FORCE=CNNHyperparams(
             # Enter a list for each element [in_channels,out_channels,kernel_size,stride]:
-            conv_layers=[[3, 6, 7, 2],
-                         [6, 15, 3, 1],
-                         [15, 24, 4,
-                          2]],
+            conv_layers=[[3, 12, 7, 2],
+                         [12, 30, 3, 1],
+                         [30, 48, 4,2]],
             # Enter a list for each element [kernel_size,stride] or False if no pool layer:
             MaxPoolLayers=[False, False, [4, 2]],
             # Enter "sigmoid","tanh", "linear" or "relu", everything else="linear":
             conv_layer_activations=["relu", "relu", "relu"],
             # Enter False or num_features for BN, length should be equal to CNN_FORCE_layers:
-            conv_BN_layers=[6, 15, False],
+            conv_BN_layers=[12, 30, False],
             # Enter False or propability of dropout:
             conv_Dropout_layers=[False, False, False],
             # Enter tuple (input_size,output_size):
-            linear_layers=[(240, 20)],
+            linear_layers=[(480, 20)],
             # Enter "sigmoid","tanh", "identity" or "relu":
             linear_activations=["identity"],
             linear_BN_layers=[False],
@@ -433,7 +441,7 @@ def load_preconfigured_model() -> LSTMModel:
         LSTM=LSTMHyperparams(
             hidden_size=300,
             nr_of_layers=2,
-            dropout=0.5
+            dropout=0.6
         )
     )
 

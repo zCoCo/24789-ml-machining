@@ -27,20 +27,20 @@ def get_opts():
                         help='Where data files should be loaded from.')
 
     # Training:
-    parser.add_argument('--num-epochs', type=int, default=3,
+    parser.add_argument('--num-epochs', type=int, default=40,
                         help='Default number of training epochs.')
     parser.add_argument('--lr', type=float, default=0.0005,
                         help='Default learning rate for training.')
-    parser.add_argument('--batch-size', type=int, default=14,
+    parser.add_argument('--batch-size', type=int, default=12,
                         help='Size of each training batch.')
     parser.add_argument('--validation-split', type=float, default=0.2,
                         help='Proportion of total dataset which should be used for validation.')
-    parser.add_argument('--test-split', type=float, default=0.1,
+    parser.add_argument('--test-split', type=float, default=0.0,
                         help='Proportion of total dataset which should be used for final testing.')
 
     parser.add_argument('--channel-forecast-start', type=int, default=25,
                         help='Which channel number to start forecasting at.')
-    parser.add_argument('--channel-forecast-step', type=int, default=15,
+    parser.add_argument('--channel-forecast-step', type=int, default=10,
                         help='How many channels to step by when increasing forecast distance.')
 
     opts = parser.parse_args()

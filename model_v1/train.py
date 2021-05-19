@@ -100,15 +100,15 @@ def train(
     test_indices = indices[splits[0]:splits[1]]
     train_indices = indices[splits[1]:]
 
-    if len(val_indices) < 2 or len(test_indices) < 2 or len(train_indices) < 2:
-        raise ValueError(
-            "Dataset is partitioned poorly. Testing, Validation, and Training "
-            "should each have at least two examples (ideally a lot more) but "
-            f"instead dataset contains {len(dataset)} `DataExample`s split into: "
-            f"{(1-hyperparams.validation_split-hyperparams.test_split)*100:3.1f}% = {len(train_indices)} for training, "
-            f"{hyperparams.validation_split*100:3.1f}% = {len(val_indices)} for validation, "
-            f"and {hyperparams.test_split*100:3.1f}% = {len(test_indices)} for final testing."
-        )
+    # if len(val_indices) < 2 or len(test_indices) < 2 or len(train_indices) < 2:
+    #     raise ValueError(
+    #         "Dataset is partitioned poorly. Testing, Validation, and Training "
+    #         "should each have at least two examples (ideally a lot more) but "
+    #         f"instead dataset contains {len(dataset)} `DataExample`s split into: "
+    #         f"{(1-hyperparams.validation_split-hyperparams.test_split)*100:3.1f}% = {len(train_indices)} for training, "
+    #         f"{hyperparams.validation_split*100:3.1f}% = {len(val_indices)} for validation, "
+    #         f"and {hyperparams.test_split*100:3.1f}% = {len(test_indices)} for final testing."
+    #     )
 
     logger.verbose(  # type: ignore
         f"Dataset contains {len(dataset)} `DataExample`s split into: "
@@ -159,7 +159,8 @@ def train(
                 start = hyperparams.channel_forecast_start
                 step = hyperparams.channel_forecast_step
                 stop = total_num_channels - step  # leave one more step to forecast
-
+                stackForPlot=stack
+                
                 for tillChannelN in channel_nums[start:stop:step]:
                     outputs = model.forward(
                         stack['signalAE'][j], stack['signalMic'][j], stack['signalForces'][j],
@@ -221,22 +222,65 @@ def train(
 
 
     
-                       
-    # ! TODO: Plot loss against train and validation sets over training
     plt.figure()
     plt.plot( range(hyperparams.num_epochs),LossInEpoch)
+    plt.plot( range(hyperparams.num_epochs),LossInEpoch_val)
+
     plt.xlabel('Number of Epoch')
     plt.ylabel('Loss MSELoss')
-    plt.legend(bbox_to_anchor=(1,1),fontsize='x-small')
+    plt.legend(f'Loss in Training',f'Loss in Validation')
     plt.show()
+
+                       
+    # ! TODO: Plot loss against train and validation sets over training
+    
+    # plt.figure()
+    # plt.plot( range(hyperparams.num_epochs),LossInEpoch)
+    # plt.xlabel('Number of Epoch')
+    # plt.ylabel('Loss MSELoss')
+    # plt.legend(bbox_to_anchor=(1,1),fontsize='x-small')
+    # plt.show()
 
     # ! TODO: Test against test set holdout after training
 
     # Plot Results for end of validation:
+    for i in range(12):
+        
+        j=random.randrange(11)
+        tillChannelN=random.randrange(20,40)
+        
+        outputs = model.forward(
+            stackForPlot['signalAE'][j], stackForPlot['signalMic'][j], stackForPlot['signalForces'][j],
+            tillChannelN
+        )
+                    
+        sns.set_theme()
+        plt.figure()
+    
+        y_pred = outputs.squeeze(dim=0).detach().numpy()
+        y_real = stackForPlot['signalFy'][j][tillChannelN+step, :].numpy()
+        
+        y_real_current = stackForPlot['signalFy'][j][tillChannelN, :].numpy()
+        y_real_10previous = stackForPlot['signalFy'][j][tillChannelN-hyperparams.channel_forecast_step, :].numpy()
+
+        plt.plot(np.linspace(0, 360, y_pred.size), y_pred,linewidth=3.0)
+        plt.plot(np.linspace(0, 360, y_real.size), y_real)
+        plt.plot(np.linspace(0, 360, y_real.size), y_real_current,linewidth=3.0)
+        plt.plot(np.linspace(0, 360, y_real.size), y_real_10previous)
+        plt.xticks(range(361)[::60])
+        plt.gca().margins(0)
+
+        plt.xlabel('Bit Rotation Angle [deg]')
+        plt.ylabel('Normalized Force')
+        plt.legend((f'Prediction (+{hyperparams.channel_forecast_step})', f'Real (+{hyperparams.channel_forecast_step})', f'Current Ch ({tillChannelN})', f'(-{hyperparams.channel_forecast_step}) Previous'))
+
+        plt.title(f'LSTM Force Prediction for {j} data Channel {tillChannelN+step} Training')
+        plt.show()
+
     for i in range(8):
         
-        j=random.randrange(6)
-        tillChannelN=random.randrange(20,40)
+        j=random.randrange(5)
+        tillChannelN=random.randrange(20,45)
         
         outputs = model.forward(
             stack['signalAE'][j], stack['signalMic'][j], stack['signalForces'][j],
@@ -263,9 +307,7 @@ def train(
         plt.ylabel('Normalized Force')
         plt.legend((f'Prediction (+{hyperparams.channel_forecast_step})', f'Real (+{hyperparams.channel_forecast_step})', f'Current Ch ({tillChannelN})', f'(-{hyperparams.channel_forecast_step}) Previous'))
 
-        plt.title(f'LSTM Force Prediction for {j} data Channel {tillChannelN+step}')
+        plt.title(f'LSTM Force Prediction for {j} data Channel {tillChannelN+step} Validation')
         plt.show()
-
-
         
     return model
