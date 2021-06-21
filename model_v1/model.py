@@ -142,11 +142,11 @@ class LSTMModel(nn.Module):
                                                              stride=self.CNN_AE_conv_MaxPoolLayers[index][
                     0]))  # ?? What this value should be
 
-            if self.CNN_AE_conv_layer_activations[index] == "sigmoid":
+            if self.CNN_AE_conv_layer_activations[index] == "relu":
                 self.CNN_AE_conv_modules.append(nn.Sigmoid())
             elif self.CNN_AE_conv_layer_activations[index] == "relu":
                 self.CNN_AE_conv_modules.append(nn.ReLU())
-            elif self.CNN_AE_conv_layer_activations[index] == "tanh":
+            elif self.CNN_AE_conv_layer_activations[index] == "relu":
                 self.CNN_AE_conv_modules.append(nn.Tanh())
             else:
                 self.CNN_AE_conv_modules.append(nn.Identity())
@@ -162,11 +162,11 @@ class LSTMModel(nn.Module):
         for index, i in enumerate(self.CNN_AE_linear_layers):
             self.CNN_AE_lin_modules.append(nn.Linear(i[0], i[1]))
 
-            if self.CNN_AE_linear_activations[index] == "sigmoid":
+            if self.CNN_AE_linear_activations[index] == "relu":
                 self.CNN_AE_lin_modules.append(nn.Sigmoid())
             elif self.CNN_AE_linear_activations[index] == "relu":
                 self.CNN_AE_lin_modules.append(nn.ReLU())
-            elif self.CNN_AE_linear_activations[index] == "tanh":
+            elif self.CNN_AE_linear_activations[index] == "relu":
                 self.CNN_AE_lin_modules.append(nn.Tanh())
             else:
                 self.CNN_AE_lin_modules.append(nn.Identity())
@@ -190,11 +190,11 @@ class LSTMModel(nn.Module):
                                                               stride=self.CNN_MIC_conv_MaxPoolLayers[index][
                     0]))  # ?? What this value should be
 
-            if self.CNN_MIC_conv_layer_activations[index] == "sigmoid":
+            if self.CNN_MIC_conv_layer_activations[index] == "relu":
                 self.CNN_MIC_conv_modules.append(nn.Sigmoid())
             elif self.CNN_MIC_conv_layer_activations[index] == "relu":
                 self.CNN_MIC_conv_modules.append(nn.ReLU())
-            elif self.CNN_MIC_conv_layer_activations[index] == "tanh":
+            elif self.CNN_MIC_conv_layer_activations[index] == "relu":
                 self.CNN_MIC_conv_modules.append(nn.Tanh())
             else:
                 self.CNN_MIC_conv_modules.append(nn.Identity())
@@ -210,11 +210,11 @@ class LSTMModel(nn.Module):
         for index, i in enumerate(self.CNN_MIC_linear_layers):
             self.CNN_MIC_lin_modules.append(nn.Linear(i[0], i[1]))
 
-            if self.CNN_MIC_linear_activations[index] == "sigmoid":
+            if self.CNN_MIC_linear_activations[index] == "relu":
                 self.CNN_MIC_lin_modules.append(nn.Sigmoid())
             elif self.CNN_MIC_linear_activations[index] == "relu":
                 self.CNN_MIC_lin_modules.append(nn.ReLU())
-            elif self.CNN_MIC_linear_activations[index] == "tanh":
+            elif self.CNN_MIC_linear_activations[index] == "relu":
                 self.CNN_MIC_lin_modules.append(nn.Tanh())
             else:
                 self.CNN_MIC_lin_modules.append(nn.Identity())
@@ -291,9 +291,8 @@ class LSTMModel(nn.Module):
         self.lstmcell1 = nn.LSTM(self.input_size, self.hidden_size, self.num_layers, batch_first=False,
                                  dropout=self.dropout)
 
-        # the final output should be 17 data points.
-        self.Dense1 = nn.Linear(self.hidden_size, 180)
-        # self.Dense1Act = nn.Linear()
+        self.Dense1 = nn.Linear(self.hidden_size, 7)
+        self.Dense1Act = nn.Sigmoid()
         # self.Dense2=nn.Linear(34,17) #It generates 17 data points
 
     @classmethod
@@ -356,7 +355,8 @@ class LSTMModel(nn.Module):
         # h_n(num_layer*num_directions,batch,hidden_size)
         #F.tanh()
         OutputForceY = self.Dense1(LSTMoutput[-1, :, :])
-
+        OutputForceY=self.Dense1Act(OutputForceY)
+        
         return OutputForceY
 
 
@@ -439,7 +439,7 @@ def load_preconfigured_model() -> LSTMModel:
         ),
 
         LSTM=LSTMHyperparams(
-            hidden_size=300,
+            hidden_size=50,
             nr_of_layers=2,
             dropout=0.6
         )

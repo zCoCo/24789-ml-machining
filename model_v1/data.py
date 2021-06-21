@@ -2,7 +2,6 @@
 Data structures and collections for various stages of processing.
 
 # Contains:
-
 - `MachiningDataset`: Wrapper for `torch` `Dataset` which combines all the data from a list of `ExperimentData` into a runnable `Dataset`.
 - `ExampleData`: A set of example data from one machining experiment which combines metadata about a machining experiment from `ExperimentData` with a stack of all learnable data from `TrainingStack`.
 - `ExperimentData`: Collection of `ChannelData` and `TrainingStack`s for one experiment (e.g. `40k-15mm-100um`).
@@ -37,17 +36,18 @@ class MachiningDataset(Dataset):
     """
     examples: List[DataExample]
 
-    def __init__(self, experiments: List[ExperimentData]):
+    def __init__(self, experiments: List[ExperimentData],  rough2):
         self.examples = []
         # Grab all training stacks from all experiments, augment them with
         # experiment metadata, and collect them:
         for exp in experiments:
-            for stack in exp.training_stacks:
+            #for stack in range(2,3): #exp.training_stacks:
                 self.examples.append(DataExample(
                     spindle_speed=exp.spindle_speed,
                     feed_rate=exp.feed_rate,
                     depth=exp.depth,
-                    stack=stack
+                    stack=exp.training_stacks[1],
+                    Roughness=rough2[exp.dir_name].value[:,2] # 0:PV   ,1:rms    ,2:Sa the rest is standard deviations.
                 ))
 
     def __len__(self) -> int: return len(self.examples)
@@ -79,7 +79,7 @@ class DataExample:
     feed_rate: int  # [mm/s]
     depth: int  # [um]
     stack: TrainingStack
-
+    Roughness: torch.Tensor
 
 @attr.s(frozen=True, cmp=True, slots=True, auto_attribs=True)
 class ExperimentData:
@@ -110,7 +110,7 @@ class ExperimentData:
             int(x) for x in re.findall(r'\d+', dir_name)
         ]
         # Sort `ChannelData` in place:
-        data.sort(key=lambda cd: cd.channel_num)
+        data.sort(key=lambda cd: cd.channel_num) #WHAT IS THIS, WHAT KIND OF SORTING!!!! sorting the indices like 01 02 03 , 1 2 3 cause  1 2 3 is causing problems???
 
         # Create Training Stacks:
         # Get the number of sections and make sure all channels have the same number of sections:
@@ -190,6 +190,82 @@ class TrainingStack:
 
 
 @attr.s(frozen=True, cmp=True, slots=True, auto_attribs=True)
+class RoughnessData:
+    """Container for file metadata and `ChannelSection` data derived from a file."""
+    # File metadata:
+    file_dir: str
+    name: str
+    ext: str
+    # Channel data:
+    value: List[1]
+
+    @classmethod
+    def from_mat(cls,
+                 file_dir: str,
+                 name: str,
+                 ext: str
+                 ) -> RoughnessData:
+        """
+        Extracts the ChannelData from the `mat` file which lives inside
+        `file_dir` under name `name` with extension `ext` (usually mat).
+        """
+        logger.debug(  # type: ignore
+            f"\t Processing channel {name} in {file_dir} . . ."
+        )
+        # Extract the data from the `mat` file:
+        ext = ext if '.' not in ext else ext.replace('.', '')
+        mat_fname = os.path.join(file_dir, f'{name}.{ext}')
+        mat_contents = scipy.io.loadmat(mat_fname)  # LOADING CODE
+        core_data = mat_contents['all']
+
+        # Load all roughness data from Zygo:
+        
+        # value: List[1]=[]
+        value=torch.tensor(core_data)
+        
+        # for i in range(core_data.size):
+        #     logger.debug(f"\t\t Processing section {i} . . .")
+            
+            # data_struct = core_data[i][0][0][0]
+            # sections.append(ChannelSection.from_mat(
+            #     statFx=data_struct['statFx'],
+            #     statFy=data_struct['statFy'],
+            #     statFz=data_struct['statFz'],
+            #     Mic_FFT=data_struct['Mic_FFT'],
+            #     AE_FFT=data_struct['AE_FFT'],
+            #     Mic_FFT_BG=data_struct['Mic_FFT_BG'],
+            #     AE_FFT_BG=data_struct['AE_FFT_BG']
+            # ))
+
+        # Extract the channel number:
+        # channel_nums = re.findall(r'\d+', name)
+        # if len(channel_nums) == 0:
+        #     raise ValueError(
+        #         "Malformed `mat` file channel name. "
+        #         "Channel name should contain one and only one group of digits. "
+        #         f"In file name `{name}.{ext}`, no groups of digits were found, "
+        #         "so the channel number is unknown."
+        #     )
+        # if len(channel_nums) > 1:
+        #     raise ValueError(
+        #         "Malformed `mat` file channel name. "
+        #         "Channel name should contain one and only one group of digits. "
+        #         f"In file name `{name}.{ext}`, {len(channel_nums)} groups of "
+        #         f"digits were found: {channel_nums} ."
+        #     )
+        # channel_num = int(channel_nums[0])
+
+        return cls(
+            file_dir=file_dir,
+            name=name,
+            ext=ext,
+            value=value
+        )
+
+
+
+
+@attr.s(frozen=True, cmp=True, slots=True, auto_attribs=True)
 class ChannelData:
     """Container for file metadata and `ChannelSection` data derived from a file."""
     # File metadata:
@@ -216,7 +292,7 @@ class ChannelData:
         # Extract the data from the `mat` file:
         ext = ext if '.' not in ext else ext.replace('.', '')
         mat_fname = os.path.join(file_dir, f'{name}.{ext}')
-        mat_contents = scipy.io.loadmat(mat_fname)
+        mat_contents = scipy.io.loadmat(mat_fname)  # LOADING CODE
         core_data = mat_contents['LSTMinput']
 
         # Load all section data:

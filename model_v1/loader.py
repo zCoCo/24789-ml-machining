@@ -2,11 +2,14 @@
 Methods for loading data from the .mat files.
 """
 from typing import Dict, List, Tuple, Optional
+"""
+Typing defines a standard notation for Python function and variable type annotations. The notation can be used for documenting code in a concise, standard format, and it has been designed to also be used by static and runtime type checkers, static analyzers, IDEs and other tools."""
+
 import attr
 
 import os
 
-from data import MachiningDataset, ExperimentData, ChannelData
+from data import MachiningDataset, ExperimentData, ChannelData, RoughnessData
 from logger import logger
 from opts import get_opts
 
@@ -27,8 +30,10 @@ def load_all_mats(data_dir: Optional[str] = None, default_key: str = 'root') -> 
     logger.info("Loading all data . . .")
     if data_dir is None:
         data_dir = opts.data_dir
-
+# Type	Description dict[str, int]	dictionary from str keys to int values, ChannelData is a class with sections which are a different class too !! sections: List[ChannelSection] !!
     data: Dict[str, List[ChannelData]] = {}
+    Roughness: Dict[str, List[RoughnessData]]={}
+    Roughness2: Dict[str]={}
 
     def add_item_if_data(dir_key: str, item_dir: str, item_name: str, recursive=True):
         """
@@ -37,7 +42,7 @@ def load_all_mats(data_dir: Optional[str] = None, default_key: str = 'root') -> 
 
         If recursive is set to `True` and the directory item is a directory, 
         that directory will be opened and its contents will be searched for data 
-        files. Any data files found will be added under the same `dir_key` given 
+        files. Any data files found will be added under the same `dir_key` given
         here. Any further directories encountered will also be recursed, etc.
 
         Args:
@@ -45,11 +50,21 @@ def load_all_mats(data_dir: Optional[str] = None, default_key: str = 'root') -> 
             item_dir (str): Directory where this directory item was found.
             item_name (str): Name of this directory item (i.e. what's inside what's returned from `os.listdir`)
         """
-        *name_parts, ext = item_name.split('.')
+        *name_parts, ext = item_name.split('.') ## there is a bug, loading goes like 20 21 ... 29 2 30 31 32 ... 39 3, I have changed the folder
         name = '.'.join(name_parts)
-        if ext == 'mat':
-            data[dir_key].append(ChannelData.from_mat(item_dir, name, ext))
+        
+        if ext == 'mat' and name!='Sa_Brass':
 
+            data[dir_key].append(ChannelData.from_mat(item_dir, name, ext))
+            # print('Sensor data is added!')
+
+        if name == 'Sa_Brass':
+            
+            Roughness[dir_key].append(RoughnessData.from_mat(item_dir, name, ext))
+            Roughness2[dir_key]=RoughnessData.from_mat(item_dir, name, ext)
+
+            print('Roughness measurement is loaded')            
+                
         item_path = os.path.join(item_dir, item_name)
         if recursive and os.path.isdir(item_path):
             for sub_item_name in os.listdir(item_path):
@@ -60,9 +75,11 @@ def load_all_mats(data_dir: Optional[str] = None, default_key: str = 'root') -> 
                     recursive=True
                 )
 
-    for item_name in os.listdir(data_dir):
+    for item_name in os.listdir(data_dir): # Number of Files in the data_dir folder which is defined in logger!!
         # Grab all .mat files in root:
         data[default_key] = []
+        Roughness[default_key]=[]
+        Roughness2[default_key]=[]
         add_item_if_data(
             dir_key=default_key,
             item_dir=data_dir,
@@ -74,6 +91,9 @@ def load_all_mats(data_dir: Optional[str] = None, default_key: str = 'root') -> 
         item_path = os.path.join(data_dir, item_name)
         if os.path.isdir(item_path):
             data[item_name] = []
+            Roughness[item_name]=[]
+            Roughness2[item_name]=[]
+
             for sub_item_name in os.listdir(item_path):
                 add_item_if_data(
                     dir_key=item_name,
@@ -91,7 +111,7 @@ def load_all_mats(data_dir: Optional[str] = None, default_key: str = 'root') -> 
             out_data[k] = ExperimentData.from_mat(dir_name=k, data=c)
 
     # Create torch dataset from all experiment data:
-    dataset = MachiningDataset([*out_data.values()])
+    dataset = MachiningDataset([*out_data.values()],Roughness2)
 
     logger.notice("All data loaded.")  # type: ignore
-    return out_data, dataset
+    return Roughness2,out_data, dataset

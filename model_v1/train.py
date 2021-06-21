@@ -143,7 +143,17 @@ def train(
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1)
 
     logger.info("Beginning training . . .")
+    
+    stackForPlot=[] # Empthy List
+    RoughnessForPlot=[]
+    for batch_idx, ex in enumerate(train_loader):
+        stack = ex['stack']
+        Surface_Rough=ex['Roughness']
+        stackForPlot.append(stack)
+        RoughnessForPlot.append(Surface_Rough)
 
+    
+    
     for epoch in range(hyperparams.num_epochs):
         epoch_start_time = time.time()  # record run TIME
         running_loss=0
@@ -151,6 +161,7 @@ def train(
         # Run over training data:
         for batch_idx, ex in enumerate(train_loader):
             stack = ex['stack']
+            Surface_Rough=ex['Roughness']
             num_in_batch = len(ex['spindle_speed'])
             for j in range(num_in_batch):
                 total_num_channels = stack['signalAE'][j].shape[0]
@@ -159,9 +170,8 @@ def train(
                 start = hyperparams.channel_forecast_start
                 step = hyperparams.channel_forecast_step
                 stop = total_num_channels - step  # leave one more step to forecast
-                stackForPlot=stack
                 
-                for tillChannelN in channel_nums[start:stop:step]:
+                for tillChannelN in channel_nums[start:stop:1]:
                     outputs = model.forward(
                         stack['signalAE'][j], stack['signalMic'][j], stack['signalForces'][j],
                         tillChannelN
@@ -169,7 +179,7 @@ def train(
                     # OutputForceY.size() torch.Size([1, 125])
                     loss = criterion(
                         outputs.double().flatten(),
-                        stack['signalFy'][j][tillChannelN + step, :]
+                        Surface_Rough[j , tillChannelN + 1 :tillChannelN + step + 1]
                     )
                     
                     running_loss += loss.item()
@@ -185,6 +195,8 @@ def train(
         
         for batch_idx, ex in enumerate(val_loader):
             stack = ex['stack']
+            Surface_Rough=ex['Roughness']
+
             num_in_batch = len(ex['spindle_speed'])
             for j in range(num_in_batch):
                 total_num_channels = stack['signalAE'][j].shape[0]
@@ -199,14 +211,21 @@ def train(
                         stack['signalAE'][j], stack['signalMic'][j], stack['signalForces'][j],
                         tillChannelN
                     )
-                    # OutputForceY.size() torch.Size([1, 125])
+                    
                     loss = criterion(
                         outputs.double().flatten(),
-                        stack['signalFy'][j][tillChannelN + step, :]
+                        Surface_Rough[j , tillChannelN + 1 :tillChannelN + step + 1]
                     )
+                    
+                    # # OutputForceY.size() torch.Size([1, 125])
+                    # loss = criterion(
+                    #     outputs.double().flatten(),
+                    #     stack['signalFy'][j][tillChannelN + step, :]
+                    # )
                     
                     running_loss_val += loss.item()
                     numberoflossitem_val+=1
+                    
         # ! TODO: Test against validation set
         LossInEpoch[epoch] =  running_loss/numberoflossitem
         LossInEpoch_val[epoch] =  running_loss_val/numberoflossitem_val
@@ -244,70 +263,152 @@ def train(
     # ! TODO: Test against test set holdout after training
 
     # Plot Results for end of validation:
-    for i in range(12):
+    # for i in range(11):
         
-        j=random.randrange(11)
-        tillChannelN=random.randrange(20,40)
+        # j=random.randrange(11)
+        # tillChannelN=random.randrange(20,40)
+        # SignalAE=stackForPlot[j]['signalAE'].squeeze(dim=1)
+        # SignalMIC=stackForPlot[j]['signalMic'].squeeze(dim=1)
+        # SignalForce=stackForPlot[j]['signalForces'].squeeze(dim=0)
         
-        outputs = model.forward(
-            stackForPlot['signalAE'][j], stackForPlot['signalMic'][j], stackForPlot['signalForces'][j],
-            tillChannelN
-        )
-                    
-        sns.set_theme()
-        plt.figure()
+    for batch_idx, ex in enumerate(train_loader):
+        stack = ex['stack']
+        Surface_Rough = ex['Roughness']
+        num_in_batch = len(ex['spindle_speed'])
     
-        y_pred = outputs.squeeze(dim=0).detach().numpy()
-        y_real = stackForPlot['signalFy'][j][tillChannelN+step, :].numpy()
-        
-        y_real_current = stackForPlot['signalFy'][j][tillChannelN, :].numpy()
-        y_real_10previous = stackForPlot['signalFy'][j][tillChannelN-hyperparams.channel_forecast_step, :].numpy()
+        for j in range(num_in_batch):
+                total_num_channels = stack['signalAE'][j].shape[0]
+                channel_nums = [*range(total_num_channels)]
 
-        plt.plot(np.linspace(0, 360, y_pred.size), y_pred,linewidth=3.0)
-        plt.plot(np.linspace(0, 360, y_real.size), y_real)
-        plt.plot(np.linspace(0, 360, y_real.size), y_real_current,linewidth=3.0)
-        plt.plot(np.linspace(0, 360, y_real.size), y_real_10previous)
-        plt.xticks(range(361)[::60])
-        plt.gca().margins(0)
+                # tillChannelN = 45
+                
+                plt.figure()
 
-        plt.xlabel('Bit Rotation Angle [deg]')
-        plt.ylabel('Normalized Force')
-        plt.legend((f'Prediction (+{hyperparams.channel_forecast_step})', f'Real (+{hyperparams.channel_forecast_step})', f'Current Ch ({tillChannelN})', f'(-{hyperparams.channel_forecast_step}) Previous'))
+                RealSurfaceData=Surface_Rough.detach().numpy()
 
-        plt.title(f'LSTM Force Prediction for {j} data Channel {tillChannelN+step} Training')
-        plt.show()
+                plt.plot(np.linspace(0, 55, RealSurfaceData.size), RealSurfaceData.transpose(),linewidth=3.0) #Correct the dimensions!!!
+                
+                # sns.set_theme()
+                for tillChannelN in range(4, 50, 4):
 
-    for i in range(8):
-        
-        j=random.randrange(5)
-        tillChannelN=random.randrange(20,45)
-        
-        outputs = model.forward(
-            stack['signalAE'][j], stack['signalMic'][j], stack['signalForces'][j],
-            tillChannelN
-        )
+                    outputs = model.forward(
+                        stack['signalAE'][j], stack['signalMic'][j], stack['signalForces'][j],
+                        tillChannelN)
                     
-        sns.set_theme()
-        plt.figure()
-    
-        y_pred = outputs.squeeze(dim=0).detach().numpy()
-        y_real = stack['signalFy'][j][tillChannelN+step, :].numpy()
+            
+                    y_pred = outputs.squeeze(dim=0).detach().numpy()
+                
+                    
+                    
+                    plt.plot(np.linspace(tillChannelN+1, tillChannelN+7, 7),y_pred)
+                    
+                plt.show()
+
+
+                plt.figure()
         
-        y_real_current = stack['signalFy'][j][tillChannelN, :].numpy()
-        y_real_10previous = stack['signalFy'][j][tillChannelN-hyperparams.channel_forecast_step, :].numpy()
+                y_real = stack['signalFy'][j][tillChannelN+7, :].numpy()
+                
+                plt.plot(np.linspace(0, 360, y_real.size), y_real)
+                plt.show()        
+        
+        # outputs = model.forward(
+        #     SignalAE,SignalMIC , SignalForce,
+        #     tillChannelN
+        # )
+                    
+        
+        
+        
+        
+        # y_real = stackForPlot['signalFy'][j][tillChannelN+step, :].numpy()
+        
+        # y_real_current = stackForPlot['signalFy'][j][tillChannelN, :].numpy()
+        
+        
+        
+        # y_real_current = stackForPlot['signalFy'][j][tillChannelN, :].numpy()
+        # y_real_10previous = stackForPlot['signalFy'][j][tillChannelN-hyperparams.channel_forecast_step, :].numpy()
 
-        plt.plot(np.linspace(0, 360, y_pred.size), y_pred,linewidth=3.0)
-        plt.plot(np.linspace(0, 360, y_real.size), y_real)
-        plt.plot(np.linspace(0, 360, y_real.size), y_real_current,linewidth=3.0)
-        plt.plot(np.linspace(0, 360, y_real.size), y_real_10previous)
-        plt.xticks(range(361)[::60])
-        plt.gca().margins(0)
+        # plt.plot(np.linspace(0, 360, y_pred.size), y_pred,linewidth=3.0)
+        # plt.plot(np.linspace(0, 360, y_real.size), y_real)
+        # plt.plot(np.linspace(0, 360, y_real.size), y_real_current,linewidth=3.0)
+        # plt.plot(np.linspace(0, 360, y_real.size), y_real_10previous)
+        # plt.xticks(range(361)[::60])
+        # plt.gca().margins(0)
 
-        plt.xlabel('Bit Rotation Angle [deg]')
-        plt.ylabel('Normalized Force')
-        plt.legend((f'Prediction (+{hyperparams.channel_forecast_step})', f'Real (+{hyperparams.channel_forecast_step})', f'Current Ch ({tillChannelN})', f'(-{hyperparams.channel_forecast_step}) Previous'))
+        # plt.xlabel('Bit Rotation Angle [deg]')
+        # plt.ylabel('Normalized Force')
+        # plt.legend((f'Prediction (+{hyperparams.channel_forecast_step})', f'Real (+{hyperparams.channel_forecast_step})', f'Current Ch ({tillChannelN})', f'(-{hyperparams.channel_forecast_step}) Previous'))
 
-        plt.title(f'LSTM Force Prediction for {j} data Channel {tillChannelN+step} Validation')
-        plt.show()
+        # plt.title(f'LSTM Force Prediction for {j} data Channel {tillChannelN+step} Training')
+        
+        
+    # for i in range(11):
+        
+    #     j=random.randrange(11)
+    #     tillChannelN=random.randrange(20,40)
+        
+    #     outputs = model.forward(
+    #         stackForPlot['signalAE'][j], stackForPlot['signalMic'][j], stackForPlot['signalForces'][j],
+    #         tillChannelN
+    #     )
+                    
+    #     sns.set_theme()
+    #     plt.figure()
+    
+    #     y_pred = outputs.squeeze(dim=0).detach().numpy()
+        
+    #     # y_real = stackForPlot['signalFy'][j][tillChannelN+step, :].numpy()
+        
+    #     y_real_current = stackForPlot['signalFy'][j][tillChannelN, :].numpy()
+    #     y_real_10previous = stackForPlot['signalFy'][j][tillChannelN-hyperparams.channel_forecast_step, :].numpy()
+
+    #     plt.plot(np.linspace(0, 360, y_pred.size), y_pred,linewidth=3.0)
+    #     plt.plot(np.linspace(0, 360, y_real.size), y_real)
+    #     plt.plot(np.linspace(0, 360, y_real.size), y_real_current,linewidth=3.0)
+    #     plt.plot(np.linspace(0, 360, y_real.size), y_real_10previous)
+    #     plt.xticks(range(361)[::60])
+    #     plt.gca().margins(0)
+
+    #     plt.xlabel('Bit Rotation Angle [deg]')
+    #     plt.ylabel('Normalized Force')
+    #     plt.legend((f'Prediction (+{hyperparams.channel_forecast_step})', f'Real (+{hyperparams.channel_forecast_step})', f'Current Ch ({tillChannelN})', f'(-{hyperparams.channel_forecast_step}) Previous'))
+
+    #     plt.title(f'LSTM Force Prediction for {j} data Channel {tillChannelN+step} Training')
+    #     plt.show()
+
+    # for i in range(8):
+        
+    #     j=random.randrange(5)
+    #     tillChannelN=random.randrange(20,45)
+        
+    #     outputs = model.forward(
+    #         stack['signalAE'][j], stack['signalMic'][j], stack['signalForces'][j],
+    #         tillChannelN
+    #     )
+                    
+    #     sns.set_theme()
+    #     plt.figure()
+    
+    #     y_pred = outputs.squeeze(dim=0).detach().numpy()
+    #     y_real = stack['signalFy'][j][tillChannelN+step, :].numpy()
+        
+    #     y_real_current = stack['signalFy'][j][tillChannelN, :].numpy()
+    #     y_real_10previous = stack['signalFy'][j][tillChannelN-hyperparams.channel_forecast_step, :].numpy()
+
+    #     plt.plot(np.linspace(0, 360, y_pred.size), y_pred,linewidth=3.0)
+    #     plt.plot(np.linspace(0, 360, y_real.size), y_real)
+    #     plt.plot(np.linspace(0, 360, y_real.size), y_real_current,linewidth=3.0)
+    #     plt.plot(np.linspace(0, 360, y_real.size), y_real_10previous)
+    #     plt.xticks(range(361)[::60])
+    #     plt.gca().margins(0)
+
+    #     plt.xlabel('Bit Rotation Angle [deg]')
+    #     plt.ylabel('Normalized Force')
+    #     plt.legend((f'Prediction (+{hyperparams.channel_forecast_step})', f'Real (+{hyperparams.channel_forecast_step})', f'Current Ch ({tillChannelN})', f'(-{hyperparams.channel_forecast_step}) Previous'))
+
+    #     plt.title(f'LSTM Force Prediction for {j} data Channel {tillChannelN+step} Validation')
+    #     plt.show()
         
     return model
